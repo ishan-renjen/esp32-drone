@@ -61,13 +61,13 @@ extern void Write(uint8_t *data, uint8_t *devaddr, int handle){
     recvData[1] = data;
     switch(handle){
         case ICM:
-            ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));
             break;
         case BMP:
-            ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));
             break;
         case MAG:
-            ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));
             break;
     }
     data = recvData[1];
