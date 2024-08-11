@@ -17,6 +17,7 @@
     "files.associations": {
         "*.obj": "c",
         "cstdint": "c",
-        "compare": "c"
+        "compare": "c",
+        "cmath": "c"
     }
 }
