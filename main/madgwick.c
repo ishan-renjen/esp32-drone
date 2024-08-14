@@ -6,7 +6,7 @@ void Q_est(float accel[3], float gyro[3], float mag[3], float quat_result[4]){
     float q_se[4] = {1, 0, 0 ,0};
     //reference direction for flux in Earth frame -- TODO: understand this beter
     float bx = 1, bz = 0;
-
+    //value used to convert vector to unit vector
     float normalized;
     //normalize the accelerometer and magnetometer vectors - divide each item by sqrt(vector)
     //accelerometer
@@ -60,13 +60,9 @@ void Q_est(float accel[3], float gyro[3], float mag[3], float quat_result[4]){
     //calculate and remove gyro biases - eqns. 48 and 49
     //calculate biases with use of zeta - rate of convergence to remove gyro errors > E(0) and time, essentially an integral over deltat weighted by zeta
     float gyro_bias[3];
-    for(int i=0; i<3;i++){
-        gyro_bias[i] = gyro_error[i]*DELTAT*ZETA;
-    }
+    for(int i=0; i<3;i++){ gyro_bias[i] = gyro_error[i]*DELTAT*ZETA; }
     //remove gyro biases
-    for(int i=0;i<3;i++){
-        gyro[i] -= gyro_bias[i];
-    }
+    for(int i=0;i<3;i++){ gyro[i] -= gyro_bias[i]; }
 
     //compute rate of change of quaternion measure by gyro post-corrections - look at Fig. 3
     float gyro_quat_rate[4]; 
