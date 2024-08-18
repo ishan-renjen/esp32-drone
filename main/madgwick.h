@@ -9,4 +9,4 @@
 #define GYRO_MEAS_DRIFT 3.14159265358979 * (0.2f/180.0f) // gyroscope measurement error in rad/s/s (shown as 0.2f deg/s/s)
 #define ZETA sqrt(3.0f/4.0f) * GYRO_MEAS_DRIFT // compute zeta for gyro gain computation
 
-void Q_est(float *accel[3], float *gyro[3], float *mag[3], float quat_result[4]);
+void Q_est(float accel[3], float gyro[3], float mag[3], float quat_result[4]);

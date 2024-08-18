@@ -18,7 +18,6 @@ float PIDLoop_quaternion(PIDController *pidData, float current_error, float dt){
 void QuatConjugate(float q[4], float result[4]){
     for(int i=0;i<4;i++){result[i] = q[i];}
     for(int i=1;i<4;i++){ result[i] *= -1;}
-    return result;
 }
 
 void QuatMultiply(float q1[4], float q2[4], float result[4]){
@@ -37,7 +36,7 @@ void QuatNormalize(float q[4], float result[4]){
     }
 }
 
-void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], float thrust[4], float throttle){
+void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], float thrust[4], float *throttle){
     PIDController error_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
     PIDController velocity_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
     float quat_error[4];
@@ -60,8 +59,8 @@ void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], floa
     }
 
     //front left, front right, rear left, rear right
-    thrust[0] = throttle + torques[0] + torques[1] - torques[2];
-    thrust[1] = throttle + torques[0] - torques[1] + torques[2];
-    thrust[2] = throttle - torques[0] + torques[1] + torques[2];
-    thrust[3] = throttle - torques[0] - torques[1] - torques[2];
+    thrust[0] = *throttle + torques[0] + torques[1] - torques[2];
+    thrust[1] = *throttle + torques[0] - torques[1] + torques[2];
+    thrust[2] = *throttle - torques[0] + torques[1] + torques[2];
+    thrust[3] = *throttle - torques[0] - torques[1] - torques[2];
 }

@@ -9,7 +9,7 @@ void BMPInit();
 void readPressureData(uint32_t *data);
 void readTempData(uint32_t *data);
 
-struct BMP390_calib_data{
+typedef struct {
     uint16_t par_t1;
     uint16_t par_t2;
     uint8_t par_t3;
@@ -22,10 +22,9 @@ struct BMP390_calib_data{
     uint8_t par_p7;
     uint8_t par_p8;
     uint16_t par_p9;
-    uint8_t par_t10;
-    uint8_t par_t11;
+    uint8_t par_p10;
+    uint8_t par_p11;
     float t_lin;
-};
+}BMP390_calib_data;
 
-BMP390_calib_data data_coeff;
 #endif //BMP390_H

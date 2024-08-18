@@ -1,7 +1,7 @@
 #include "BMP390.h"
 
 void BMPInit(){
-    data=BMP_PRESS_TEMP_EN_DATA;
+    uint8_t data=BMP_PRESS_TEMP_EN_DATA;
     Write(&data, BMP_EN_REG, BMP);
 }
 
@@ -9,7 +9,7 @@ void readPressureData(uint32_t *data){
     for(int i=0; i<3; i++){
         uint8_t tempData;
         Read(&tempData, BMP_PRESSURE_STARTING_ADDR+i, BMP);
-        data = tempData << (3-(i+1))*8;
+        *data = tempData << (3-(i+1))*8;
     }
 }
 
@@ -17,11 +17,11 @@ void readTempData(uint32_t *data){
     for(int i=0; i<3; i++){
         uint8_t tempData;
         Read(&tempData, BMP_TEMP_STARTING_ADDR+i, BMP);
-        data = tempData << (3-(i+1))*8;
+        *data = tempData << (3-(i+1))*8;
     }
 }
 
-void populateStruct(){
+void populateStruct(BMP390_calib_data coeff_data){
     uint8_t data8;
     uint16_t data16;
 
@@ -98,11 +98,11 @@ void populateStruct(){
 
 
 //copied from datasheet
-static float BMP390_compensate_temperature(uint32_t uncomp_temp, struct BMP390_calib_data *calib_data)
+static float BMP390_compensate_temperature(uint32_t uncomp_temp, BMP390_calib_data *calib_data)
 {
     float partial_data1;
     float partial_data2;
-    partial_data1 = (float)(uncomp_temp – calib_data->par_t1);
+    partial_data1 = (float)(uncomp_temp - calib_data->par_t1);
     partial_data2 = (float)(partial_data1 * calib_data->par_t2);
     /* Update the compensated temperature in calib structure since this is
     * needed for pressure calculation */
@@ -112,7 +112,7 @@ static float BMP390_compensate_temperature(uint32_t uncomp_temp, struct BMP390_c
 }
 
 //copied from datasheet
-static float BMP390_compensate_pressure(uint32_t uncomp_press, struct BMP390_calib_data *calib_data)
+static float BMP390_compensate_pressure(uint32_t uncomp_press, BMP390_calib_data *calib_data)
 {
 /* Variable to store the compensated pressure */
     float comp_press;
@@ -141,12 +141,13 @@ static float BMP390_compensate_pressure(uint32_t uncomp_press, struct BMP390_cal
     return comp_press;
 }
 
-void compensate_pressure_complete(float comp_pressure){
+void compensate_pressure_complete(float *comp_pressure){
     uint32_t temp;
     uint32_t pressure;
+    BMP390_calib_data coeff_data;
     readPressureData(&pressure);
     readTempData(&temp);
-    populateStruct;
+    populateStruct(coeff_data);
     BMP390_compensate_temperature(temp, &coeff_data);
-    comp_pressure = BMP390_compensate_pressure(pressure, &coeff_data);
+    *comp_pressure = BMP390_compensate_pressure(pressure, &coeff_data);
 }

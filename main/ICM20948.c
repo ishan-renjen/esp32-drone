@@ -34,7 +34,7 @@ void getAccelerometerData(uint16_t *data[3]){
         accelXYZ[x] = accelData[x][0] << 8;
         accelXYZ[x] = accelData[x][1];
     }
-    data = accelXYZ;
+    for(int i=0;i<3;i++){data[i] = accelXYZ[i];}
 }
 
 //return data as 2d array - magnetometer MSB, LSB in X, Y, Z
@@ -52,7 +52,7 @@ void getMagnetometerData(uint16_t *data[3]){
         uint16_t temp = magnetData[x][1] << 8;
         magXYZ[x] |= temp;
     }
-    data = magXYZ;
+    for(int i=0;i<3;i++){data[i] = magXYZ[i];}
 }
 
 //return data as 2d array - gyro MSB, LSB in X, Y, Z
@@ -72,5 +72,5 @@ void getGyroData(uint16_t *data[3]){
         gyroXYZ[x] = gyroData[x][0]<< 8;
         gyroXYZ[x] = gyroData[x][1];
     }
-    data = gyroXYZ;
+    for(int i=0;i<3;i++){data[i] = gyroXYZ[i];}
 }

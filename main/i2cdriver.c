@@ -28,13 +28,13 @@ extern void I2CInit(int i2c_num, int icm_slave_addr, int bmp_slave_addr, int mag
 
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp_dev_cfg, &bmp_dev_handle));
 
-    i2c_device_config_t bmp_dev_cfg = {
+    i2c_device_config_t mag_dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = mag_slave_addr,
         .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp_dev_cfg, &mag_dev_handle));
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &mag_dev_cfg, &mag_dev_handle));
 }
 
 extern void Read(uint8_t *data, uint8_t *devaddr, int handle){
@@ -43,10 +43,10 @@ extern void Read(uint8_t *data, uint8_t *devaddr, int handle){
     recvData[1] = data;
     switch(handle){
         case ICM:
-            ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_receive(icm_dev_handle, recvData, 1, 0));
             break;
         case BMP:
-            ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_receive(bmp_dev_handle, recvData, 1, 0));
             break;
         case MAG:
             ESP_ERROR_CHECK(i2c_master_receive(mag_dev_handle, recvData, 1, 0));
@@ -61,10 +61,10 @@ extern void Write(uint8_t *data, uint8_t *devaddr, int handle){
     recvData[1] = data;
     switch(handle){
         case ICM:
-            ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_transmit(icm_dev_handle, recvData, 1, 0));
             break;
         case BMP:
-            ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));
+            ESP_ERROR_CHECK(i2c_master_transmit(bmp_dev_handle, recvData, 1, 0));
             break;
         case MAG:
             ESP_ERROR_CHECK(i2c_master_transmit(mag_dev_handle, recvData, 1, 0));

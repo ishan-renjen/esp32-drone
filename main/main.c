@@ -6,7 +6,6 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_mac.h"
-#include "mcpwm.h"
 #include "IO.h"
 
 void app_main(void)
