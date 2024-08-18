@@ -1,6 +1,7 @@
-#define ACCEL_DT 0.01 //100 Hz
-#define VEL_DT 0.001 //1 KHz
-#define POS_DT 0.0001 //10 KHz
+#include "math.h"
+
+#define OUTER_DT 0.01 //100 Hz
+#define INNER_DT 0.001 //1 KHz
 
 typedef struct {
     float kp;
@@ -10,4 +11,4 @@ typedef struct {
     float derivative_error;
 } PIDController;
 
-float PIDLoop(PIDController *pidData, float ideal, float actual, float dt);
+extern void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[4], float torques[4]);

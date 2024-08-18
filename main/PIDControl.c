@@ -5,86 +5,63 @@ float PIDLoop(PIDController *pidData, float ideal, float actual, float dt){
     pidData->integral += current_error*dt; //integrate error within bounds of 0 to dt
     float derivative = (current_error - pidData->derivative_error)/dt;
     pidData->derivative_error = current_error;
-    return (pidData->kp*current_error) + (pidData->ki*pidData->integral)+(pidData->kd*(pidData->derivative_error)); 
+    return (pidData->kp*current_error) + (pidData->ki*pidData->integral)+(pidData->kd*derivative); 
 }
 
-
-//first out of 3 loops, which computes desired velocity based on actual acceleration from IMU and desired acceleration from controller
-void AccelPIDLoop(float actual[3], float desired[3], float velocity[3]){
-    PIDController pidAccelX;
-    pidAccelX.kp = 1;
-    pidAccelX.ki = 0.1;
-    pidAccelX.kd = 0.01;
-
-    PIDController pidAccelY;
-    pidAccelY.kp = 1;
-    pidAccelY.ki = 0.1;
-    pidAccelY.kd = 0.01;
-
-    PIDController pidAccelZ;
-    pidAccelZ.kp = 1;
-    pidAccelZ.ki = 0.1;
-    pidAccelZ.kd = 0.01;
-
-    velocity[0] = PIDLoop(&pidAccelX, desired[0], actual[0], ACCEL_DT);
-    velocity[1] = PIDLoop(&pidAccelY, desired[1], actual[1], ACCEL_DT);
-    velocity[2] = PIDLoop(&pidAccelZ, desired[2], actual[2], ACCEL_DT);
+float PIDLoop_quaternion(PIDController *pidData, float current_error, float dt){
+    pidData->integral += current_error*dt; //integrate error within bounds of 0 to dt
+    float derivative = (current_error - pidData->derivative_error)/dt;
+    pidData->derivative_error = current_error;
+    return (pidData->kp*current_error) + (pidData->ki*pidData->integral)+(pidData->kd*derivative); 
 }
 
-//second out of 3 loops which computes desired pitch, roll, and yaw based on the output from the first PID stage and velocity from a complementary filter
-void VelocityPIDLoop(float actual[3], float desired[3], float position[3]){
-    PIDController pidVelX;
-    pidVelX.kp = 1;
-    pidVelX.ki = 0.1;
-    pidVelX.kd = 0.01;
-
-    PIDController pidVelY;
-    pidVelY.kp = 1;
-    pidVelY.ki = 0.1;
-    pidVelY.kd = 0.01;
-
-    PIDController pidVelZ;
-    pidVelZ.kp = 1;
-    pidVelZ.ki = 0.1;
-    pidVelZ.kd = 0.01;
-
-    position[0] = PIDLoop(&pidVelX, desired[0], actual[0], VEL_DT);
-    position[1] = PIDLoop(&pidVelY, desired[1], actual[1], VEL_DT);
-    position[2] = PIDLoop(&pidVelZ, desired[2], actual[2], VEL_DT);
+void QuatConjugate(float q[4], float result[4]){
+    for(int i=0;i<4;i++){result[i] = q[i];}
+    for(int i=1;i<4;i++){ result[i] *= -1;}
+    return result;
 }
 
-//3rd loop out of 3, innermost loop. computes thrust of motors based on inputted euler angles and actual angles from madgwick filter
-void PositionPIDLoop(float actual[3], float desired[3], float thrust[3]){
-    PIDController pidPosX;
-    pidPosX.kp = 1;
-    pidPosX.ki = 0.1;
-    pidPosX.kd = 0.01;
-
-    PIDController pidPosY;
-    pidPosY.kp = 1;
-    pidPosY.ki = 0.1;
-    pidPosY.kd = 0.01;
-
-    PIDController pidPosZ;
-    pidPosZ.kp = 1;
-    pidPosZ.ki = 0.1;
-    pidPosZ.kd = 0.01;
-
-    thrust[0] = PIDLoop(&pidPosX, desired[0], actual[0], POS_DT);
-    thrust[1] = PIDLoop(&pidPosY, desired[1], actual[1], POS_DT);
-    thrust[2] = PIDLoop(&pidPosZ, desired[2], actual[2], POS_DT);
+void QuatMultiply(float q1[4], float q2[4], float result[4]){
+    float q2_conj[4];
+    QuatConjugate(q2, q2_conj);
+    result[0] = q1[0]*q2_conj[0] - q1[1]*q2_conj[1] - q1[2]*q2_conj[2] - q1[3]*q2_conj[3];
+    result[1] = q1[0]*q2_conj[1] + q1[1]*q2_conj[0] + q1[2]*q2_conj[3] - q1[3]*q2_conj[2];
+    result[2] = q1[0]*q2_conj[2] - q1[1]*q2_conj[3] + q1[2]*q2_conj[0] + q1[3]*q2_conj[1];
+    result[3] = q1[0]*q2_conj[3] + q1[1]*q2_conj[2] - q1[2]*q2_conj[1] + q1[3]*q2_conj[0];
 }
 
-//controls entire PID process and sends out thrusts to each motor as a float array
-//TODO: write complementary filter fusing gyro and accelerometer to get reliable velocity 
-//TODO: compute thrusts per motor based on output of position stage
-//TODO: consider an altitude loop as well
-void PIDControlLoop(float accelData[3], float controllerAccel[3], float velocityData[3], float angles[3], float output[4]){
-    float velocityComputed[3];
-    float positionComputed[3];
-    float thrustComputed[3];
+void QuatNormalize(float q[4], float result[4]){
+    float normalize = sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+    for(int i=0;i<4;i++){
+        result[i] = q[i]/(normalize + 0.000000000000000000000000000000001f);
+    }
+}
 
-    AccelPIDLoop(accelData, controllerAccel, velocityComputed);
-    VelocityPIDLoop(velocityData, velocityComputed, positionComputed);
-    PositionPIDLoop(angles, positionComputed, thrustComputed);
+void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], float thrust[4], float throttle){
+    PIDController error_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
+    PIDController velocity_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
+    float quat_error[4];
+    QuatMultiply(q_setpoint, q_actual, quat_error); //gives you error of quaternion for PID 
+
+    //normalize error quaternion
+    float quat_error_normalized[4];
+    QuatNormalize(quat_error, quat_error_normalized);
+
+    //compute the desired velocities in xyz based on the normalized quaternion error
+    float desired_velocity[3];
+    for(int i=1; i<4;i++){
+        desired_velocity[i-1] = PIDLoop_quaternion(&error_loop_pid, quat_error_normalized[i], OUTER_DT);
+    }
+
+    //compute torque vector in xyz
+    float torques[3];
+    for(int i=0;i<3;i++){
+        torques[i] = PIDLoop(&velocity_loop_pid, desired_velocity[i], v_actual[i], INNER_DT);
+    }
+
+    //front left, front right, rear left, rear right
+    thrust[0] = throttle + torques[0] + torques[1] - torques[2];
+    thrust[1] = throttle + torques[0] - torques[1] + torques[2];
+    thrust[2] = throttle - torques[0] + torques[1] + torques[2];
+    thrust[3] = throttle - torques[0] - torques[1] - torques[2];
 }
