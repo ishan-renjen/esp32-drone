@@ -1,0 +1,12 @@
+#include <stdio.h>
+#include "freertos/task.h"
+#include "driver/uart.h"
+#include "driver/gpio.h"
+#include "sdkconfig.h"
+#include "esp_log.h"
+#include "IO.h"
+
+extern void uart_init();
+
+extern void uart_read();
+extern void uart_write();
