@@ -7,6 +7,5 @@
 #include "IO.h"
 
 extern void uart_init();
-
-extern void uart_read();
-extern void uart_write();
+extern void uart_write_float(float *data);
+extern void uart_read_float(float *data_float);

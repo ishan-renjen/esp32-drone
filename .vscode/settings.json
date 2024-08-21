@@ -18,6 +18,8 @@
         "*.obj": "c",
         "cstdint": "c",
         "compare": "c",
-        "cmath": "c"
+        "cmath": "c",
+        "bluetooth.h": "c",
+        "esp_nimble_hci.h": "c"
     }
 }
