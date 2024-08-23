@@ -14,20 +14,44 @@ void app_main(void)
     I2CInit(I2CBUS_0, ICM20948_SLAVE_ADDR, BMP390_SLAVE_ADDR, ICM_MAG_SLAVE_ADDR);
     uart_init();
 
-    //create tasks - high priorities is read user data from uart, read sensor data from i2c - consider setting up interrupts??
-    //                  -highest priority is to get altitude data to preserve height in case of sensor disconnection
-    //                  -next highest is IMU data for motion and user data to compute next position and current orientation
-    //             - medium priority is to run control loop - dependent on high priority tasks
 
-    //safety loop - if user data not present beyond loop frequency, hover at current height
+    /*RTOS structure
+    highest priorities:
+        Task - collect UART data
+        Task - collect I2C data
 
-    //resources -- sensors - updated only with sensor tasks, and in meantime use stored data
-    //          -- motors - will need mutex around this because of safety loop and control loop setting it
-    //          -- user data - updated only from user data task
+    next level:
+        Task - compute motor thrusts
+        Task - run altitude PID loop - inner
 
-    //problems - what happens if sensor data refreshes too fast for controls to run? 
+    Safety measure: if I2C read or UART read fails at the specified tick, stop motion - 
+        set user quaternion to 0, store current altitude, and hover in place
 
-    //create startup sequence to read sensor data, run system w/o moving motors to flush the pipeline
+    next level:
+        Task - run complementary filter
+        Task - run velocity PID loop - inner
 
+    next level:
+        Task - run madgwick filter
+        Task - run position PID loop - outer
+
+
+    Create FIFOs storing I2C data, UART data to be used
+
+    I2C data runs at ~400 khz - store in queue
+    UART data runs at 900 Hz - store in queue
+
+    if either data is not ESP_OK stop all motion, freeze altitude
+
+    altitude PID loop runs at 10 KHz - update pid loop
+        put motor access in mutex b/c velocity loop and altitude loop will be accessing it
+            put buffer inputting data into motor thrust computation to hold most recent value
+
+    position PID loop runs at 5 KHz - inputs data from complementary filter and previous outer PID loop result
+
+    position PID loop runs at 500 Hz - inputs data from madgwick filter and UART FIFO
+
+    Madgwick and complementary filters do not have hard timing requirements but need to be recomputed before dependent PID loops run
+    */
 
 }
