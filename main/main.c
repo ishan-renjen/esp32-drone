@@ -3,6 +3,7 @@
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_mac.h"
@@ -13,7 +14,6 @@ void app_main(void)
     //initialize peripherals
     I2CInit(I2CBUS_0, ICM20948_SLAVE_ADDR, BMP390_SLAVE_ADDR, ICM_MAG_SLAVE_ADDR);
     uart_init();
-
 
     /*RTOS structure
     highest priorities:

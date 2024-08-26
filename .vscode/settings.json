@@ -20,6 +20,8 @@
         "compare": "c",
         "cmath": "c",
         "bluetooth.h": "c",
-        "esp_nimble_hci.h": "c"
+        "esp_nimble_hci.h": "c",
+        "io.h": "c",
+        "freertos.h": "c"
     }
 }

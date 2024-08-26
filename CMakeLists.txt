@@ -3,3 +3,5 @@
 cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(es32-drone)
+
+set(COMPONENT_DIRS "./components/Filters" "./components/Controls" "./components/Drivers")
