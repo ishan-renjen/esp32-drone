@@ -1,7 +1,7 @@
 #include "math.h"
 
-#define OUTER_DT 0.01 //100 Hz
-#define INNER_DT 0.001 //1 KHz
+#define OUTER_DT 0.00028 //3.6 KHz
+#define INNER_DT 0.00005 //18 KHz
 
 typedef struct {
     float kp;
@@ -11,4 +11,7 @@ typedef struct {
     float derivative_error;
 } PIDController;
 
-extern void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], float thrust[4], float *throttle);
+extern void outerLoop(float q_setpoint[4], float q_actual[4], float v_actual[3]);
+extern void innerLoop(float v_actual[3], float v_ideal[3], float thrust[4]);
+extern void heightLoop(float *height_actual, float *height_ideal, float *throttle);
+extern void motorControl(float thrust[4], float *throttle);

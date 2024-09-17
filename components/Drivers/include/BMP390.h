@@ -8,6 +8,7 @@
 void BMPInit();
 void readPressureData(uint32_t *data);
 void readTempData(uint32_t *data);
+extern void compensate_pressure_complete(float *comp_pressure);
 
 typedef struct {
     uint16_t par_t1;

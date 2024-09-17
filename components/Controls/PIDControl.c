@@ -36,9 +36,7 @@ void QuatNormalize(float q[4], float result[4]){
     }
 }
 
-void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], float thrust[4], float *throttle){
-    PIDController error_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
-    PIDController velocity_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
+extern void outerLoop(float q_setpoint[4], float q_actual[4], float v_ideal[3]){
     float quat_error[4];
     QuatMultiply(q_setpoint, q_actual, quat_error); //gives you error of quaternion for PID 
 
@@ -46,19 +44,33 @@ void ControlLoop(float q_setpoint[4], float q_actual[4], float v_actual[3], floa
     float quat_error_normalized[4];
     QuatNormalize(quat_error, quat_error_normalized);
 
+    PIDController error_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
+
     //compute the desired velocities in xyz based on the normalized quaternion error
-    float desired_velocity[3];
     for(int i=1; i<4;i++){
-        desired_velocity[i-1] = PIDLoop_quaternion(&error_loop_pid, quat_error_normalized[i], OUTER_DT);
+        v_ideal[i-1] = PIDLoop_quaternion(&error_loop_pid, quat_error_normalized[i], OUTER_DT);
     }
+}
+
+extern void innerLoop(float v_actual[3], float v_ideal[3], float torques[3]){
+    PIDController velocity_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
 
     //compute torque vector in xyz
-    float torques[3];
     for(int i=0;i<3;i++){
-        torques[i] = PIDLoop(&velocity_loop_pid, desired_velocity[i], v_actual[i], INNER_DT);
+        torques[i] = PIDLoop(&velocity_loop_pid, v_ideal[i], v_actual[i], INNER_DT);
     }
+}
+extern void heightLoop(float *height_actual, float *height_ideal, float *throttle){
+    PIDController height_loop_pid = {1, 0.1, 0.01, 0.0, 0.0};
 
-    //front left, front right, rear left, rear right
+    //compute throttle based on height PID 
+    for(int i=0;i<3;i++){
+        *throttle = PIDLoop(&height_loop_pid, *height_ideal, *height_actual, INNER_DT);
+    }
+}
+
+extern void motorControl(float torques[4], float thrust[4], float *throttle){
+     //front left, front right, rear left, rear right
     thrust[0] = *throttle + torques[0] + torques[1] - torques[2];
     thrust[1] = *throttle + torques[0] - torques[1] + torques[2];
     thrust[2] = *throttle - torques[0] + torques[1] + torques[2];

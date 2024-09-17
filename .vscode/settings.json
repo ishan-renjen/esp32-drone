@@ -22,6 +22,15 @@
         "bluetooth.h": "c",
         "esp_nimble_hci.h": "c",
         "io.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "semphr.h": "c",
+        "pidcontrol.h": "c",
+        "uart_to_pi.h": "c",
+        "array": "c",
+        "ranges": "c",
+        "span": "c",
+        "vector": "c",
+        "xstring": "c",
+        "xutility": "c"
     }
 }

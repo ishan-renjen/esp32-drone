@@ -6,4 +6,4 @@ pitch, roll: high pass gyro low pass accelerometer
 yaw: high pass gyro low pass magnetometer
 */
 
-void complementary_filter(float accel[3], float gyro[3], float mag[3], float angular_vel[3]);
+extern void complementary_filter(float accel[3], float gyro[3], float mag[3], float angular_vel[3]);
