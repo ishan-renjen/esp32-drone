@@ -1,5 +1,10 @@
 #include "i2cdriver.h"
 
+i2c_master_bus_handle_t bus_handle;
+i2c_master_dev_handle_t icm_dev_handle;
+i2c_master_dev_handle_t bmp_dev_handle;
+i2c_master_dev_handle_t mag_dev_handle;
+
 extern void I2CInit(int i2c_num, int icm_slave_addr, int bmp_slave_addr, int mag_slave_addr){
     i2c_master_bus_config_t i2c_mst_config = {
     .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -18,7 +23,7 @@ extern void I2CInit(int i2c_num, int icm_slave_addr, int bmp_slave_addr, int mag
         .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &icm_dev_cfg, &icm_dev_handle));
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(icm_dev_handle, &icm_dev_cfg, &icm_dev_handle));
 
     i2c_device_config_t bmp_dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -26,7 +31,7 @@ extern void I2CInit(int i2c_num, int icm_slave_addr, int bmp_slave_addr, int mag
         .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp_dev_cfg, &bmp_dev_handle));
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bmp_dev_handle, &bmp_dev_cfg, &bmp_dev_handle));
 
     i2c_device_config_t mag_dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -34,7 +39,7 @@ extern void I2CInit(int i2c_num, int icm_slave_addr, int bmp_slave_addr, int mag
         .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
 
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &mag_dev_cfg, &mag_dev_handle));
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(mag_dev_handle, &mag_dev_cfg, &mag_dev_handle));
 }
 
 extern void Read(uint8_t *data, uint8_t *devaddr, int handle){
