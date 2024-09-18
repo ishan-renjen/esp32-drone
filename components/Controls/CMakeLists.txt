@@ -1,2 +1,2 @@
-idf_component_register(SRCS "PIDControl.c" "rtosTasks.c"
+idf_component_register(SRCS "PIDControl.c"
                     INCLUDE_DIRS "include")

@@ -69,7 +69,7 @@ extern void heightLoop(float *height_actual, float *height_ideal, float *throttl
     }
 }
 
-extern void motorControl(float torques[4], float thrust[4], float *throttle){
+extern void motorControl(float torques[3], float thrust[4], float *throttle){
      //front left, front right, rear left, rear right
     thrust[0] = *throttle + torques[0] + torques[1] - torques[2];
     thrust[1] = *throttle + torques[0] - torques[1] + torques[2];

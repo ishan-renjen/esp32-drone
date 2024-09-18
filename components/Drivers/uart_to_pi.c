@@ -23,6 +23,23 @@ void uart_init(){
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, uart_buffer_size, uart_buffer_size, 10, &uart_queue, 0));
 }
 
+void convert_to_array(float *data, uint8_t bytes[4]){
+    for(int i=0;i<4;i++){
+        uint32_t data_temp = *data;
+        bytes[i] = data_temp;
+        data_temp = data_temp >> 8;
+    }
+}
+
+void convert_to_float(uint8_t bytes[4], float *data){
+    uint32_t data_temp;
+    for(int i=0;i<4;i++){
+        data_temp = bytes[i];
+        data_temp = data_temp << 8;
+    }
+    *data = (float)data_temp;
+}
+
 void uart_write_float(float *data){
     uint8_t bytes[4];
     convert_to_array(data, bytes);
@@ -43,21 +60,4 @@ void uart_read_float(float *data_float){
     ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_num, (size_t*)&length));
     length = uart_read_bytes(uart_num, data, length, 100);
     convert_to_float(data, data_float);
-}
-
-void convert_to_array(float *data, uint8_t bytes[4]){
-    for(int i=0;i<4;i++){
-        float data_temp = *data;
-        bytes[i] = data_temp;
-        data_temp >> 8;
-    }
-}
-
-void convert_to_float(uint8_t bytes[4], float *data){
-    float data_temp;
-    for(int i=0;i<4;i++){
-        data_temp = bytes[i];
-        data_temp << 8;
-    }
-    *data = data_temp;
 }

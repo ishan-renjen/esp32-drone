@@ -13,11 +13,35 @@
 #include "uart_to_pi.h"
 #include "ICM20948.h"
 #include "BMP390.h"
+#include "motorconfig.h"
+
 #include "PIDControl.h"
+
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_mac.h"
 #include "IO.h"
+
+typedef struct {
+    float accelerometer[3];
+    float gyro[3];
+    float magnetometer[3];
+} IMUData;
+
+typedef struct {
+    float quat_ideal[4];
+    float height;
+} UserData;
+
+typedef struct {
+    float data[3];
+} OuterLoopResult;
+
+typedef struct {
+    float throttle;
+    float motorTorques[3];
+    float motorThrusts[4];
+} MotorThrottleData;
 
 QueueHandle_t bmpQueue;
 QueueHandle_t icmQueue;
@@ -41,24 +65,133 @@ QueueSetHandle_t innerLoopSet; //take in outer loop and icm
 
 #define MOTOR_CONTROL_PRIORITY 2
 
-typedef struct IMUData {
-    float accelerometer[3];
-    float gyro[3];
-    float magnetometer[3];
-};
+void uartTask(void *pvParameters){
+    for(;;){
+        float data;
+        uart_read_float(&data);
 
-typedef struct UserData {
-    float quat_ideal[4];
-    float height;
-};
+        QueueHandle_t uartQueue = (QueueHandle_t *) pvParameters;
+        xQueueSend(uartQueue, (void*)&data, 1);
+    }
+}
 
-typedef struct OuterLoopResult{
-    float data[3];
-};
+void icmTask(void *pvParameters){
+    IMUData imuData;
+    for(;;){
+        getAccelerometerData(&imuData.accelerometer);
+        getGyroData(&imuData.gyro);
+        getMagnetometerData(&imuData.magnetometer);
 
-typedef struct MotorThrottleData{
-    float throttle;
-    float motorThrust[4];
+        QueueHandle_t icmDataQueue = (QueueHandle_t *) pvParameters;
+        xQueueSend(icmDataQueue, (void*)&imuData, 1);
+    }
+}
+
+void bmpTask(void *pvParameters){
+    for(;;){
+        float pressure;
+        compensate_pressure_complete(&pressure);
+
+        QueueHandle_t bmpDataQueue = (QueueHandle_t *) pvParameters;
+        xQueueSend(bmpDataQueue, (void*)&pressure, 1);
+    }
+}
+
+void pidAltitudeTask(void *pvParameters){
+    char *buffer;
+    QueueSetHandle_t xQueue;
+    UserData *userData;
+    float *pressureData;
+    MotorThrottleData *motorData;
+    for(;;){
+        xQueue = xQueueSelectFromSet(altitudeLoopSet, 1);
+
+        if(xQueue == NULL){}
+        else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
+            xQueueReceive(xQueue, buffer, 1);
+            userData = (struct UserData *) buffer;
+        }
+        else if(xQueue == (QueueSetMemberHandle_t) bmpQueue){
+            xQueueRecieve(xQueue, buffer, 1);
+            pressureData = (float *) buffer;
+        }
+
+        heightLoop(&pressureData, &userData->height, &motorData->throttle);
+        xQueueSend(throttleQueue, (void*)&motorData, 1);
+    }
+}
+
+void velocityPIDLoopTask(void *PvParameters){
+    char *buffer;
+    QueueSetHandle_t xQueue;
+    IMUData *icmData;
+    OuterLoopResult *outerLoopData;
+    MotorThrottleData *motorData;
+    for(;;){
+        xQueue = xQueueSelectFromSet(innerLoopSet, 1);
+
+        if(xQueue == NULL){}
+        else if(xQueue == (QueueSetMemberHandle_t) outerToInner){
+            xQueueReceive(uartQueue, buffer, 0);
+            icmData = (struct ICMData *) buffer;
+        }
+        else if(xQueue == (QueueSetMemberHandle_t) icmQueue){
+            xQueueReceive(uartQueue, buffer, 0);
+            outerLoopData = (struct OuterLoopResult *) buffer;
+        }
+
+        float actual_vel[3];
+        complementary_filter(&icmData->accelerometer, &icmData->gyro, &icmData->magnetometer, actual_vel);
+
+        float thrust[3];
+        innerLoop(actual_vel, &outerLoopData->data, thrust);
+        
+        &motorData->motorTorques = thrust;
+        xQueueSend(throttleQueue, (void*)&motorData, 1);
+    }
+}
+
+void motorTask(void *pvParameters){
+    char *buffer;
+    MotorThrottleData *motorData;
+    for(;;){
+        xQueueReceive(throttleQueue, buffer, 1);
+        motorData = (struct MotorThrottleData *) buffer;
+        float thrusts[4];
+        motorControl(&motorData->motorTorques, &motorData->motorThrusts, &motorData->throttle);
+
+        for(int i=0;i<4;i++){
+            setMotorSpeed(i, &motorData->motorThrusts[i]);
+        }
+    }
+}
+
+void positionPIDControlTask(void *pvParameters){
+    char *buffer;
+    QueueSetHandle_t xQueue;
+    IMUData *imuData;
+    UserData *userData;
+    OuterLoopResult *data;
+    for(;;){
+        xQueue = xQueueSelectFromSet(outerLoopSet, 1);
+
+        if(xQueue == NULL){}
+        else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
+            xQueueReceive(uartQueue, buffer, 0);
+            userData = (struct UserData*) buffer;
+        }
+        else if(xQueue == (QueueSetMemberHandle_t) icmQueue){
+            xQueueReceive(icmQueue, buffer, 0);
+            imuData = (struct IMUData *) buffer;
+        }
+
+        float quat_actual[4];
+        float vel_ideal[3];
+        Q_est(&imuData->accelerometer, &imuData->gyro, &imuData->magnetometer, quat_actual);  
+        outerLoop(&userData->quat_ideal, quat_actual, vel_ideal);
+        &data->data = vel_ideal;
+        xQueueSend(outerToInner, (void*)&data, 1);
+    }
 }
 
 void app_main(void)
@@ -102,128 +235,4 @@ void app_main(void)
     xTaskCreate(positionPIDControlTask, "position pid loop task", MAX_STACK_SIZE, (void*)uartQueue, OUTER_lOOP_PRIORITY, positionPIDControlTaskHandle);
 
     vTaskStartScheduler();
-}
-
-void uartTask(void *pvParameters){
-    for(;;){
-        float data;
-        uart_read_float(&data);
-
-        QueueHandle_t uartQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(uartQueue, data, 1);
-    }
-}
-
-void icmTask(void *pvParameters){
-    struct IMUdata imuData;
-    for(;;){
-        getAccelerometerData(&imuData.accelerometer);
-        getGyroData(&imuData.gyro);
-        getMagnetometerData(&imuData.magnetometer);
-
-        QueueHandle_t icmDataQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(icmDataQueue, imuData, 1);
-    }
-}
-
-void bmpTask(void *pvParameters){
-    for(;;){
-        float pressure;
-        compensate_pressure_complete(&pressure);
-
-        QueueHandle_t bmpDataQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(bmpDataQueue, pressure, 1);
-    }
-}
-
-void pidAltitudeTask(void *pvParameters){
-    char *buffer;
-    QueueSetHandle_t xQueue;
-    struct UserData userData;
-    float pressureData;
-    struct motorThrottleData motorData;
-    for(;;){
-        xQueue = xQueueSelectFromSet(altitudeLoopSet, 1);
-
-        if(xQueue == NULL){}
-        else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
-            xQueueReceive(xQueue, buffer, 1);
-            userData = (struct UserData *) buffer;
-        }
-        else if(xQueue == (QueueSetMemberHandle_t) bmpQueue){
-            xQueueRecieve(xQueue, buffer, 1);
-            pressureData = (float *) buffer;
-        }
-
-        heightLoop(&pressureData, &userData.height, &motorData.throttle);
-        xQueueSend(throttleQueue, motorData, 1);
-    }
-}
-
-void velocityPIDLoopTask(void *PvParameters){
-    char *buffer;
-    QueueSetHandle_t xQueue;
-    struct ICMData icmData;
-    struct OuterLoopResult outerLoopData;
-    struct MotorThrottleData motorData;
-    for(;;){
-        xQueue = xQueueSelectFromSet(innerLoopSet, 1);
-
-        if(xQueue == NULL){}
-        else if(xQueue == (QueueSetMemberHandle_t) outerToInner){
-            xQueueReceive(uartQueue, buffer, 0);
-            icmData = (struct ICMData *) buffer;
-        }
-        else if(xQueue == (QueueSetMemberHandle_t) icmQueue){
-            xQueueReceive(uartQueue, buffer, 0);
-            outerLoopData = (struct OuterLoopResult *) buffer;
-        }
-
-        float actual_vel[3];
-        complementary_filter(icmData.accelerometer, icmData.gyro, icmData.magnetometer, actual_vel);
-
-        float thrust[4];
-        innerLoop(actual_vel, outerLoopData.data, thrust);
-
-        motorData.motorThrust = thrust;
-        xQueueSend(throttleQueue, motorData, 1);
-    }
-}
-
-void motorTask(void *pvParameters){
-    char *buffer;
-    struct MotorThrottleData motorData;
-    for(;;){
-        xQueueReceive(throttleQueue, buffer, 1);
-        motorData = (struct MotorThrottleData *) buffer;
-        motorControl(motorData.motorThrust, &motorData.throttle);
-    }
-}
-
-void positionPIDControlTask(void *pvParameters){
-    char *buffer;
-    QueueSetHandle_t xQueue;
-    struct IMUdata imuData;
-    struct UserData userData;
-    struct OuterLoopData data;
-    for(;;){
-        xQueue = xQueueSelectFromSet(outerLoopSet, 1);
-
-        if(xQueue == NULL){}
-        else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
-            xQueueReceive(uartQueue, buffer, 0);
-            userData = (struct UserData *) buffer;
-        }
-        else if(xQueue == (QueueSetMemberHandle_t) icmQueue){
-            xQueueReceive(icmQueue, buffer, 0);
-            imuData = (struct IMUData *) buffer;
-        }
-
-        float quat_actual[4];
-        float vel_ideal[3];
-        Q_est(imuData.accelerometer, imuData.gyro, imuData.magnetometer, quat_actual);  
-        outerLoop(userData.quat_ideal, quat_actual, vel_ideal);
-        data.data = vel_ideal;
-        xQueueSend(outerToInner, data, 1);
-    }
 }

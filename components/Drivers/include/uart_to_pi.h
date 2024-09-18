@@ -2,6 +2,7 @@
 #define UART_TO_PI_H
 
 #include <stdio.h>
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
