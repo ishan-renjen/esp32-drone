@@ -37,14 +37,6 @@ ledc_channel_config_t channel0 = {
     .duty = 0
 };
 
-ledc_channel_config_t channel0 = {
-    .gpio_num = MOTOR_1,
-    .speed_mode = LEDC_LOW_SPEED_MODE,
-    .channel = LEDC_CHANNEL_0,
-    .timer_sel = LEDC_TIMER_0,
-    .duty = 0
-};
-
 ledc_channel_config_t channel1 = {
     .gpio_num = MOTOR_2,
     .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -111,21 +103,22 @@ bool setMotorSpeed(int motor, int duty){
 }
 
 double getMotorSpeed(int motor){
+    uint32_t duty;
     switch(motor){
         case 1:
-            uint32_t duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             return duty;
             break;
         case 2:
-            uint32_t duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             return duty;
             break;
         case 3:
-            uint32_t duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             return duty;
             break;
         case 4:
-            uint32_t duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             return duty;
             break;
         default:

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
@@ -54,6 +55,7 @@ QueueSetHandle_t outerLoopSet; //take in uart and icm
 QueueSetHandle_t innerLoopSet; //take in outer loop and icm
 
 #define MAX_STACK_SIZE 100
+#define TASK_WAIT_TIME 50
 
 #define UART_PRIORITY 4
 #define ICM_PRIORITY 3
@@ -71,7 +73,7 @@ void uartTask(void *pvParameters){
         uart_read_float(&data);
 
         QueueHandle_t uartQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(uartQueue, (void*)&data, 1);
+        xQueueSend(uartQueue, (void*)&data, TASK_WAIT_TIME);
     }
 }
 
@@ -83,7 +85,7 @@ void icmTask(void *pvParameters){
         getMagnetometerData(&imuData.magnetometer);
 
         QueueHandle_t icmDataQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(icmDataQueue, (void*)&imuData, 1);
+        xQueueSend(icmDataQueue, (void*)&imuData, TASK_WAIT_TIME);
     }
 }
 
@@ -93,18 +95,18 @@ void bmpTask(void *pvParameters){
         compensate_pressure_complete(&pressure);
 
         QueueHandle_t bmpDataQueue = (QueueHandle_t *) pvParameters;
-        xQueueSend(bmpDataQueue, (void*)&pressure, 1);
+        xQueueSend(bmpDataQueue, (void*)&pressure, TASK_WAIT_TIME);
     }
 }
 
 void pidAltitudeTask(void *pvParameters){
-    char *buffer;
+    char buffer[100];
     QueueSetHandle_t xQueue;
     UserData *userData;
     float *pressureData;
     MotorThrottleData *motorData;
     for(;;){
-        xQueue = xQueueSelectFromSet(altitudeLoopSet, 1);
+        xQueue = xQueueSelectFromSet(altitudeLoopSet, TASK_WAIT_TIME);
 
         if(xQueue == NULL){}
         else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
@@ -112,23 +114,23 @@ void pidAltitudeTask(void *pvParameters){
             userData = (struct UserData *) buffer;
         }
         else if(xQueue == (QueueSetMemberHandle_t) bmpQueue){
-            xQueueRecieve(xQueue, buffer, 1);
+            xQueueReceive(xQueue, buffer, 1);
             pressureData = (float *) buffer;
         }
 
-        heightLoop(&pressureData, &userData->height, &motorData->throttle);
-        xQueueSend(throttleQueue, (void*)&motorData, 1);
+        heightLoop(pressureData, &(userData->height), &(motorData->throttle));
+        xQueueSend(throttleQueue, (void*)&motorData, TASK_WAIT_TIME);
     }
 }
 
 void velocityPIDLoopTask(void *PvParameters){
-    char *buffer;
+    char buffer[100];
     QueueSetHandle_t xQueue;
     IMUData *icmData;
     OuterLoopResult *outerLoopData;
     MotorThrottleData *motorData;
     for(;;){
-        xQueue = xQueueSelectFromSet(innerLoopSet, 1);
+        xQueue = xQueueSelectFromSet(innerLoopSet, TASK_WAIT_TIME);
 
         if(xQueue == NULL){}
         else if(xQueue == (QueueSetMemberHandle_t) outerToInner){
@@ -141,24 +143,24 @@ void velocityPIDLoopTask(void *PvParameters){
         }
 
         float actual_vel[3];
-        complementary_filter(&icmData->accelerometer, &icmData->gyro, &icmData->magnetometer, actual_vel);
+        complementary_filter(icmData->accelerometer, icmData->gyro, icmData->magnetometer, actual_vel);
 
-        float thrust[3];
-        innerLoop(actual_vel, &outerLoopData->data, thrust);
-        
-        &motorData->motorTorques = thrust;
-        xQueueSend(throttleQueue, (void*)&motorData, 1);
+        float torques[3];
+        memcpy(motorData->motorTorques, torques, sizeof(torques));
+        innerLoop(actual_vel, &(outerLoopData->data), torques);
+        xQueueSend(throttleQueue, (void*)&motorData, TASK_WAIT_TIME);
     }
 }
 
 void motorTask(void *pvParameters){
-    char *buffer;
+    char buffer[100];
     MotorThrottleData *motorData;
     for(;;){
-        xQueueReceive(throttleQueue, buffer, 1);
+        xQueueReceive(throttleQueue, buffer, TASK_WAIT_TIME);
         motorData = (struct MotorThrottleData *) buffer;
         float thrusts[4];
-        motorControl(&motorData->motorTorques, &motorData->motorThrusts, &motorData->throttle);
+
+        motorControl(motorData->motorTorques, motorData->motorThrusts, &(motorData->throttle));
 
         for(int i=0;i<4;i++){
             setMotorSpeed(i, &motorData->motorThrusts[i]);
@@ -167,13 +169,13 @@ void motorTask(void *pvParameters){
 }
 
 void positionPIDControlTask(void *pvParameters){
-    char *buffer;
+    char buffer[100];
     QueueSetHandle_t xQueue;
     IMUData *imuData;
     UserData *userData;
     OuterLoopResult *data;
     for(;;){
-        xQueue = xQueueSelectFromSet(outerLoopSet, 1);
+        xQueue = xQueueSelectFromSet(outerLoopSet, TASK_WAIT_TIME);
 
         if(xQueue == NULL){}
         else if(xQueue == (QueueSetMemberHandle_t) uartQueue){
@@ -187,10 +189,10 @@ void positionPIDControlTask(void *pvParameters){
 
         float quat_actual[4];
         float vel_ideal[3];
-        Q_est(&imuData->accelerometer, &imuData->gyro, &imuData->magnetometer, quat_actual);  
-        outerLoop(&userData->quat_ideal, quat_actual, vel_ideal);
-        &data->data = vel_ideal;
-        xQueueSend(outerToInner, (void*)&data, 1);
+        Q_est((imuData->accelerometer), (imuData->gyro), (imuData->magnetometer), (quat_actual));  
+        memcpy(data->data, vel_ideal, sizeof(vel_ideal));
+        outerLoop(userData->quat_ideal, quat_actual, vel_ideal);
+        xQueueSend(outerToInner, (void*)&data, TASK_WAIT_TIME);
     }
 }
 
