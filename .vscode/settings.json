@@ -32,6 +32,7 @@
         "vector": "c",
         "xstring": "c",
         "xutility": "c",
-        "motorconfig.h": "c"
+        "motorconfig.h": "c",
+        "complex": "c"
     }
 }

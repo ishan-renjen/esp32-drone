@@ -6,4 +6,6 @@ x, y: high pass gyro low pass accelerometer
 z: high pass gyro low pass magnetometer
 */
 
+//https://vanhunteradams.com/Pico/ReactionWheel/Complementary_Filters.html
+
 extern void complementary_filter(float accel[3], float gyro[3], float mag[3], float angular_vel[3]);
