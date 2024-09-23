@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/FreeRTOSConfig.h"
 #include "freertos/message_buffer.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -55,7 +56,7 @@ QueueSetHandle_t outerLoopSet; //take in uart and icm
 QueueSetHandle_t innerLoopSet; //take in outer loop and icm
 
 #define MAX_STACK_SIZE 100
-#define TASK_WAIT_TIME 50
+#define TASK_WAIT_TIME 10
 
 #define UART_PRIORITY 4
 #define ICM_PRIORITY 3
@@ -68,17 +69,26 @@ QueueSetHandle_t innerLoopSet; //take in outer loop and icm
 #define MOTOR_CONTROL_PRIORITY 2
 
 void uartTask(void *pvParameters){
+    TickType_t xLastWakeTime;
+    const TickType_t xFrequency = 5;
+
     for(;;){
         float data;
         uart_read_float(&data);
 
         QueueHandle_t uartQueue = (QueueHandle_t *) pvParameters;
         xQueueSend(uartQueue, (void*)&data, TASK_WAIT_TIME);
+
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
 void icmTask(void *pvParameters){
     IMUData imuData;
+
+    TickType_t xLastWakeTime;
+    const TickType_t xFrequency = 1;
+
     for(;;){
         getAccelerometerData(&imuData.accelerometer);
         getGyroData(&imuData.gyro);
@@ -86,16 +96,24 @@ void icmTask(void *pvParameters){
 
         QueueHandle_t icmDataQueue = (QueueHandle_t *) pvParameters;
         xQueueSend(icmDataQueue, (void*)&imuData, TASK_WAIT_TIME);
+
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
 void bmpTask(void *pvParameters){
+
+    TickType_t xLastWakeTime;
+    const TickType_t xFrequency = 1;
+
     for(;;){
         float pressure;
         compensate_pressure_complete(&pressure);
 
         QueueHandle_t bmpDataQueue = (QueueHandle_t *) pvParameters;
         xQueueSend(bmpDataQueue, (void*)&pressure, TASK_WAIT_TIME);
+
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
 }
 
@@ -143,7 +161,7 @@ void velocityPIDLoopTask(void *PvParameters){
         }
 
         float actual_vel[3];
-        complementary_filter(icmData->accelerometer, icmData->gyro, icmData->magnetometer, actual_vel);
+        complementary_filter(icmData->accelerometer, icmData->gyro, icmData->magnetometer, actual_vel, 0.01f);
 
         float torques[3];
         memcpy(motorData->motorTorques, torques, sizeof(torques));
